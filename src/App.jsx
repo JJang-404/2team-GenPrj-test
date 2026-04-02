@@ -1,0 +1,24 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
+import Layout from './components/Layout/Layout';
+import ImageGeneration from './pages/ImageGeneration/ImageGeneration';
+import AdCopyGeneration from './pages/AdCopyGeneration/AdCopyGeneration';
+import Test from './pages/Test/Test';
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/image-generation" replace />} />
+              <Route path="image-generation" element={<ImageGeneration />} />
+              <Route path="adcopy-generation" element={<AdCopyGeneration />} />
+              <Route path="test" element={<Test />} />
+        </Route>
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;

@@ -1,0 +1,61 @@
+/* 이미지 생성 페이지 */
+.image-generation {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* 프롬프트 여러 줄 입력 텍스트박스 */
+.image-generation__prompt {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  resize: vertical;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.image-generation__prompt:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+/* 생성 버튼 */
+.image-generation__btn {
+  align-self: flex-start;
+  padding: 10px 28px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #4a90e2;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.image-generation__btn:hover:not(:disabled) {
+  background-color: #357abd;
+}
+
+.image-generation__btn:disabled {
+  background-color: #a0b8d8;
+  cursor: not-allowed;
+}
+
+/* 생성된 이미지 결과 영역 */
+.image-generation__result {
+  margin-top: 20px;
+}
+
+.image-generation__result-img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
