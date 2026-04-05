@@ -10,6 +10,7 @@ const Layout = () => {
         <ul>
           <li><NavLink to="/image-generation" className={({isActive}) => isActive ? "active" : ""}>이미지 생성</NavLink></li>
           <li><NavLink to="/adcopy-generation" className={({isActive}) => isActive ? "active" : ""}>광고문구 생성</NavLink></li>
+          <li><NavLink to="/image-prompt" className={({isActive}) => isActive ? "active" : ""}>이미지/프롬프트</NavLink></li>
           <li><NavLink to="/test" className={({isActive}) => isActive ? "active" : ""}>테스트</NavLink></li>
         </ul>
       </nav>

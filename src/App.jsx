@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Layout from './components/Layout/Layout';
 import ImageGeneration from './pages/ImageGeneration/ImageGeneration';
 import AdCopyGeneration from './pages/AdCopyGeneration/AdCopyGeneration';
+import ImagePrompt from './pages/ImagePrompt/ImagePrompt';
 import Test from './pages/Test/Test';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
           <Route index element={<Navigate to="/image-generation" replace />} />
               <Route path="image-generation" element={<ImageGeneration />} />
               <Route path="adcopy-generation" element={<AdCopyGeneration />} />
+              <Route path="image-prompt" element={<ImagePrompt />} />
               <Route path="test" element={<Test />} />
         </Route>
       </Routes>

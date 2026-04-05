@@ -6,3 +6,64 @@
 https://gen-proj.duckdns.org/addhelper/accessdata/generate?prompt=국밥집
 이 이미지를 접속하여 더는  함수는 genBackend.js에 만들고 사용하여 주세요.
 
+광고문구생성 메뉴 다음에 "이미지/프롬프트"라는 메뉴를 만들고 페이지를 따로 만들어서
+ 입력창(이미지 생성 입력창과 동일)과 이미지를 넣을수 있는 창을 만들어 주세요. 생성이라는 버튼은 제목 바로 밑에 만들어 주세요.
+
+
+이미지/프롬프트 생성 이미지를 누르면, 
+fastapi 의 아래의 함수를 호출해서 결과를 받아서 
+맨 마지막에 이미지를 표시해 주세요. 
+
+ @router.post("/changeimage")
+async def changeimage(req: ChangeImageRequest) -> Response:
+    if req.strength < 0.0 or req.strength > 1.0:
+        raise HTTPException(status_code=400, detail="strength는 0.0~1.0 범위여야 합니다.")
+
+    raw_base64 = (req.image_base64 or "").strip()
+    if not raw_base64:
+        raise HTTPException(status_code=400, detail="image_base64는 필수입니다.")
+
+    if "," in raw_base64:
+        raw_base64 = raw_base64.split(",", 1)[1]
+
+    try:
+        # 유효한 base64 문자열인지 선검증 후 업스트림으로 전달합니다.
+        base64.b64decode(raw_base64, validate=True)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="유효한 base64 이미지가 아닙니다.") from exc
+
+    translator = OpenAiJob()
+    translated_prompt = translator.changeKor2Eng(req.prompt)
+    print(f"Translated prompt: {translated_prompt}")
+
+    try:
+        engine_url = _get_engine_base_url()
+        image_url = f"{engine_url}/changeimage"
+        payload = {
+            "prompt": translated_prompt,
+            "image_base64": raw_base64,
+            "strength": req.strength,
+        }
+        request = Request(
+            image_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        with urlopen(request, timeout=180) as upstream_response:
+            body = upstream_response.read()
+            content_type = upstream_response.headers.get_content_type()
+
+        if not content_type.startswith("image/"):
+            out_map: dict[str, Any] = {}
+            out_map.update(Get_Error_Response("Upstream did not return image data."))
+            out_map["upstream_content_type"] = content_type
+            out_map["upstream_body_preview"] = body[:300].decode("utf-8", errors="ignore")
+            return JSONResponse(status_code=502, content=out_map)
+
+        return Response(content=body, media_type=content_type)
+    except HTTPException:
+        raise
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=str(ex)) from ex
