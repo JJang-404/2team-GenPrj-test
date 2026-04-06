@@ -6,6 +6,8 @@ import ImageGeneration from './pages/ImageGeneration/ImageGeneration';
 import AdCopyGeneration from './pages/AdCopyGeneration/AdCopyGeneration';
 import ImagePrompt from './pages/ImagePrompt/ImagePrompt';
 import Test from './pages/Test/Test';
+import Login from './pages/Login/Login';
+import Signup from './pages/Login/Signup';
 
 function App() {
   return (
@@ -13,10 +15,12 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/image-generation" replace />} />
-              <Route path="image-generation" element={<ImageGeneration />} />
-              <Route path="adcopy-generation" element={<AdCopyGeneration />} />
-              <Route path="image-prompt" element={<ImagePrompt />} />
-              <Route path="test" element={<Test />} />
+          <Route path="image-generation" element={<ImageGeneration />} />
+          <Route path="adcopy-generation" element={<AdCopyGeneration />} />
+          <Route path="image-prompt" element={<ImagePrompt />} />
+          <Route path="test" element={<Test />} />
+          <Route path="login" element={<Login />} />
+          <Route path="login/signup" element={<Signup />} />
         </Route>
       </Routes>
     </Router>

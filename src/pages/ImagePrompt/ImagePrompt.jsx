@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { miireboxApi } from '../../api/genBackend';
+import { modelApi } from '../../api/modelApi';
 import './ImagePrompt.css';
 
 const fileToBase64 = (file) =>
@@ -21,20 +21,20 @@ const ImagePrompt = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handlePromptChange = (e) => {
-    setPromptText(e.target.value);
+  const handlePromptChange = (event) => {
+    setPromptText(event.target.value);
   };
 
-  const handlePositivePromptChange = (e) => {
-    setPositivePromptText(e.target.value);
+  const handlePositivePromptChange = (event) => {
+    setPositivePromptText(event.target.value);
   };
 
-  const handleNegativePromptChange = (e) => {
-    setNegativePromptText(e.target.value);
+  const handleNegativePromptChange = (event) => {
+    setNegativePromptText(event.target.value);
   };
 
-  const handleStrengthChange = (e) => {
-    setStrength(parseFloat(e.target.value));
+  const handleStrengthChange = (event) => {
+    setStrength(parseFloat(event.target.value));
   };
 
   const handleGenerateClick = async () => {
@@ -50,7 +50,7 @@ const ImagePrompt = () => {
 
     try {
       const imageBase64 = await fileToBase64(uploadedFile);
-      const response = await miireboxApi.changeImage(
+      const response = await modelApi.changeImage(
         promptText.trim(),
         imageBase64,
         strength,
@@ -70,9 +70,8 @@ const ImagePrompt = () => {
     }
   };
 
-  // 파일 선택으로 이미지 업로드 처리
-  const handleUploadChange = (e) => {
-    const selectedFile = e.target.files && e.target.files[0];
+  const handleUploadChange = (event) => {
+    const selectedFile = event.target.files && event.target.files[0];
     if (!selectedFile) return;
 
     setUploadedFile(selectedFile);
@@ -80,9 +79,8 @@ const ImagePrompt = () => {
     setUploadedImageUrl(localImageUrl);
   };
 
-  // 클립보드 붙여넣기(Ctrl+V)로 이미지 넣기 처리
-  const handlePaste = (e) => {
-    const clipboardItems = e.clipboardData && e.clipboardData.items;
+  const handlePaste = (event) => {
+    const clipboardItems = event.clipboardData && event.clipboardData.items;
     if (!clipboardItems) return;
 
     for (const item of clipboardItems) {
@@ -135,7 +133,6 @@ const ImagePrompt = () => {
         rows={6}
       />
 
-      {/* 이미지 업로드 및 클립보드 붙여넣기 영역 */}
       <div
         className={`image-prompt__upload${uploadedImageUrl ? '' : ' image-prompt__upload--empty'}`}
         onPaste={handlePaste}
@@ -163,7 +160,6 @@ const ImagePrompt = () => {
         )}
       </div>
 
-      {/* strength 슬라이더 */}
       <div className="image-prompt__strength">
         <label className="image-prompt__strength-label" htmlFor="image-prompt-strength">
           변환 강도 (strength): <strong>{strength.toFixed(2)}</strong>
@@ -191,7 +187,6 @@ const ImagePrompt = () => {
         </div>
       )}
 
-      {/* 변환 결과 이미지 */}
       {resultImageUrl && (
         <div className="image-prompt__generated-box">
           <img

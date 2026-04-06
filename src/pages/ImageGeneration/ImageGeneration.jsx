@@ -1,41 +1,33 @@
 import React, { useState } from 'react';
 import './ImageGeneration.css';
-import { miireboxApi } from '../../api/genBackend';
+import { modelApi } from '../../api/modelApi';
 
 const ImageGeneration = () => {
-  // 프롬프트 입력 텍스트 상태
   const [promptText, setPromptText] = useState('');
-  // 포지티브 프롬프트 상태
   const [positivePromptText, setPositivePromptText] = useState('');
-  // 네가티브 프롬프트 상태
   const [negativePromptText, setNegativePromptText] = useState('');
-  // 생성된 이미지 URL 상태
   const [imageUrl, setImageUrl] = useState('');
-  // 이미지 생성 진행 중 여부 상태
   const [isGenerating, setIsGenerating] = useState(false);
-  // 오류 메시지 상태
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 프롬프트 입력 변경 핸들러
-  const handlePromptChange = (e) => {
-    setPromptText(e.target.value);
+  const handlePromptChange = (event) => {
+    setPromptText(event.target.value);
   };
 
-  const handlePositivePromptChange = (e) => {
-    setPositivePromptText(e.target.value);
+  const handlePositivePromptChange = (event) => {
+    setPositivePromptText(event.target.value);
   };
 
-  const handleNegativePromptChange = (e) => {
-    setNegativePromptText(e.target.value);
+  const handleNegativePromptChange = (event) => {
+    setNegativePromptText(event.target.value);
   };
 
-  // 생성 버튼 클릭 핸들러: 이미지 생성 API 호출 후 결과 표시
   const handleGenerateClick = async () => {
     if (!promptText.trim()) return;
     setIsGenerating(true);
     setImageUrl('');
     setErrorMsg('');
-    const response = await miireboxApi.generateImage(
+    const response = await modelApi.generateImage(
       promptText.trim(),
       positivePromptText,
       negativePromptText,
@@ -77,7 +69,6 @@ const ImageGeneration = () => {
         rows={6}
       />
 
-      {/* 생성 버튼 */}
       <button
         className="image-generation__btn"
         onClick={handleGenerateClick}
@@ -97,7 +88,6 @@ const ImageGeneration = () => {
         <p className="image-generation__error" role="alert">{errorMsg}</p>
       )}
 
-      {/* 생성된 이미지 표시 영역 */}
       {imageUrl && (
         <div className="image-generation__result">
           <img

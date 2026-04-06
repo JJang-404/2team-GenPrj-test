@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { miireboxApi } from '../../api/genBackend';
+import { modelApi } from '../../api/modelApi';
 
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
@@ -22,9 +22,9 @@ const toDisplayText = (value) => {
 };
 
 const Test = () => {
-  const expectedApiUrl = `${miireboxApi.backendUrl}/model/test`;
-  const expectedGenerateUrl = `${miireboxApi.backendUrl}/model/generate?prompt={prompt}&positive_prompt={positive_prompt}&negative_prompt={negative_prompt}`;
-  const expectedChangeImageUrl = `${miireboxApi.backendUrl}/model/changeimage`;
+  const expectedApiUrl = `${modelApi.backendUrl}/model/test`;
+  const expectedGenerateUrl = `${modelApi.backendUrl}/model/generate?prompt={prompt}&positive_prompt={positive_prompt}&negative_prompt={negative_prompt}`;
+  const expectedChangeImageUrl = `${modelApi.backendUrl}/model/changeimage`;
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isChangingImage, setIsChangingImage] = useState(false);
@@ -41,7 +41,7 @@ const Test = () => {
     const params = new URLSearchParams({ prompt: promptText.trim() });
     if (positivePromptText.trim()) params.set('positive_prompt', positivePromptText.trim());
     if (negativePromptText.trim()) params.set('negative_prompt', negativePromptText.trim());
-    return `${miireboxApi.backendUrl}/model/generate?${params.toString()}`;
+    return `${modelApi.backendUrl}/model/generate?${params.toString()}`;
   };
 
   const handleBackendCheck = async () => {
@@ -49,7 +49,7 @@ const Test = () => {
     setResult(null);
 
     try {
-      const response = await miireboxApi.testConnection();
+      const response = await modelApi.testConnection();
 
       setResult({
         ok: response.ok,
@@ -81,7 +81,7 @@ const Test = () => {
     setGenerateResult(null);
 
     try {
-      const response = await miireboxApi.generateImage(
+      const response = await modelApi.generateImage(
         promptText.trim(),
         positivePromptText,
         negativePromptText,
@@ -122,7 +122,7 @@ const Test = () => {
 
     try {
       const imageBase64 = await fileToBase64(uploadedFile);
-      const response = await miireboxApi.changeImage(
+      const response = await modelApi.changeImage(
         promptText.trim(),
         imageBase64,
         strength,

@@ -1,169 +1,77 @@
-
-import base64
-import json
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse, Response
+api폴더 밑에 users.js 를 만들어서
+(혹은 더 좋은 파일 이름으로 만들어서)
+아래의 backend에 접속 합니다.
+또한 genBackend.js 모다 파일 이름이 models.js 등이 더 합리적 이름이 있으면 수정해 주세요.
+import hashlib
+import sqlite3
 from typing import Any
-import configparser
-import os
-from urllib.request import Request, urlopen
-from app.common import defines
-from app.common.util import ok_response, error_response
-from app.models.openapi import ChangeImageRequest, OpenAiJob, PromptBundle
 
-router = APIRouter(prefix="/addhelper/model", tags=["addhelper-model"])
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
-# 성공 응답 포맷 생성 함수
-def get_ok_response(extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    return ok_response(extra)
+from app.common.util import error_response, ok_response
+from app.db.SQLiteDB import SQLiteDB
 
-# 에러 응답 포맷 생성 함수
-def get_error_response(message: str) -> dict[str, Any]:
-    return error_response(message)
+router = APIRouter(prefix="/addhelper/user", tags=["addhelper-user"])
+
+class UserSignupRequest(BaseModel):
+	user_name: str = Field(..., min_length=1)
+	user_passwd: str = Field(..., min_length=1)
 
 
-def _get_engine_base_url() -> str:
-    default_url = "https://nabidream.duckdns.org/model/"
-    if not defines.BACKEND_INI_PATH or not os.path.exists(defines.BACKEND_INI_PATH):
-        return default_url
-
-    config = configparser.ConfigParser()
-    config.read(defines.BACKEND_INI_PATH, encoding="utf-8")
-    url = config.get("engine", "engine_url", fallback=default_url).strip()
-    return (url or default_url).rstrip("/")
+class UserLoginRequest(BaseModel):
+	user_name: str = Field(..., min_length=1)
+	user_passwd: str = Field(..., min_length=1)
 
 
-def _build_prompt_bundle(
-    prompt: str,
-    positive_prompt: str | None = None,
-    negative_prompt: str | None = None,
-) -> PromptBundle:
-    translator = OpenAiJob()
-    prompt_bundle = translator.build_prompt_bundle(
-        prompt=prompt,
-        positive_prompt=positive_prompt,
-        negative_prompt=negative_prompt,
-    )
-    print(f"Positive prompt: {prompt_bundle.positive_prompt}")
-    print(f"Negative prompt: {prompt_bundle.negative_prompt}")
-    return prompt_bundle
+def _hash_password(raw_password: str) -> str:
+	return hashlib.sha256(raw_password.encode("utf-8")).hexdigest()
 
 
-# 필요에 따라 추가 엔드포인트 구현 가능
-@router.get("/test")
-def test_connection() -> dict[str, Any]:
-    return get_ok_response({"data": "접속 테스트 성공"})
- 
+@router.post("/signup")
+def signup(req: UserSignupRequest) -> dict[str, Any] | JSONResponse:
+	db = SQLiteDB()
+	if db.GetUserByName(req.user_name):
+		return JSONResponse(
+			status_code=400,
+			content=error_response("이미 존재하는 사용자입니다."),
+		)
 
-# backend.ini의 [engine] engine_url(기본값: https://nabidream.duckdns.org/model/) 업스트림의 /generate를 호출하여 이미지를 반환합니다.
-@router.get("/generate")
-def generate_image(
-    prompt: str,
-    positive_prompt: str | None = None,
-    negative_prompt: str | None = None,
-) -> Response:
-    try:
-        prompt_bundle = _build_prompt_bundle(
-            prompt=prompt,
-            positive_prompt=positive_prompt,
-            negative_prompt=negative_prompt,
-        )
-        # 업스트림 이미지 생성 API 결과를 그대로 프록시하여 실제 이미지를 반환합니다.
-        engine_url = _get_engine_base_url()
-        image_url = f"{engine_url}/generate"
-        payload = {
-            "positive_prompt": prompt_bundle.positive_prompt,
-            "negative_prompt": prompt_bundle.negative_prompt,
-        }
-        request = Request(
-            image_url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+	try:
+		new_user_id = db.InsertUser(req.user_name, _hash_password(req.user_passwd))
+	except sqlite3.IntegrityError:
+		return JSONResponse(
+			status_code=400,
+			content=error_response("이미 존재하는 사용자입니다."),
+		)
 
-        with urlopen(request, timeout=300) as upstream_response:
-            body = upstream_response.read()
-            content_type = upstream_response.headers.get_content_type()
-
-        if not content_type.startswith("image/"):
-            out_map: dict[str, Any] = {}
-            out_map.update(get_error_response("Upstream did not return image data."))
-            out_map["upstream_content_type"] = content_type
-            out_map["upstream_body_preview"] = body[:300].decode("utf-8", errors="ignore")
-            return JSONResponse(status_code=502, content=out_map)
-
-        return Response(content=body, media_type=content_type)
-    except Exception as ex:
-        out_map: dict[str, Any] = {}
-        out_map.update(get_error_response(str(ex)))
-        return JSONResponse(status_code=500, content=out_map)
+	return ok_response(
+		{
+			"data": "회원가입 성공",
+			"datalist": [
+				{
+					"user_id": new_user_id,
+					"user_name": req.user_name,
+				}
+			],
+		}
+	)
 
 
-# backend.ini의 [engine] engine_url(기본값: https://nabidream.duckdns.org/model/) 업스트림의 /changeimage 호출하여 이미지를 반환합니다
-@router.post("/changeimage")
-async def changeimage(req: ChangeImageRequest) -> Response:
-    if req.strength < 0.0 or req.strength > 1.0:
-        return JSONResponse(
-            status_code=400,
-            content=get_error_response("strength는 0.0~1.0 범위여야 합니다."),
-        )
+@router.post("/login")
+def login(req: UserLoginRequest) -> dict[str, Any] | JSONResponse:
+	db = SQLiteDB()
+	user = db.VerifyUser(req.user_name, _hash_password(req.user_passwd))
+	if not user:
+		return JSONResponse(
+			status_code=401,
+			content=error_response("아이디 또는 비밀번호가 올바르지 않습니다."),
+		)
 
-    raw_base64 = (req.image_base64 or "").strip()
-    if not raw_base64:
-        return JSONResponse(
-            status_code=400,
-            content=get_error_response("image_base64는 필수입니다."),
-        )
-
-    if "," in raw_base64:
-        raw_base64 = raw_base64.split(",", 1)[1]
-
-    try:
-        # 유효한 base64 문자열인지 선검증 후 업스트림으로 전달합니다.
-        base64.b64decode(raw_base64, validate=True)
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content=get_error_response("유효한 base64 이미지가 아닙니다."),
-        )
-
-    try:
-        prompt_bundle = _build_prompt_bundle(
-            prompt=req.prompt,
-            positive_prompt=req.positive_prompt,
-            negative_prompt=req.negative_prompt,
-        )
-        engine_url = _get_engine_base_url()
-        image_url = f"{engine_url}/changeimage"
-        payload = {
-            "positive_prompt": prompt_bundle.positive_prompt,
-            "negative_prompt": prompt_bundle.negative_prompt,
-            "image_base64": raw_base64,
-            "strength": req.strength,
-        }
-        request = Request(
-            image_url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
-        with urlopen(request, timeout=180) as upstream_response:
-            body = upstream_response.read()
-            content_type = upstream_response.headers.get_content_type()
-
-        if not content_type.startswith("image/"):
-            out_map: dict[str, Any] = {}
-            out_map.update(get_error_response("Upstream did not return image data."))
-            out_map["upstream_content_type"] = content_type
-            out_map["upstream_body_preview"] = body[:300].decode("utf-8", errors="ignore")
-            return JSONResponse(status_code=502, content=out_map)
-
-        return Response(content=body, media_type=content_type)
-    except Exception as ex:
-        return JSONResponse(status_code=500, content=get_error_response(str(ex)))
-
-
-백엔드 서버에서 (포지티브/네가티브를 둘다 필요 합니다.)
-화면상에서 포지티브/네가티브를 입력 받고, 처리하도록 수정해 주세요.
+	return ok_response(
+		{
+			"data": "로그인 성공",
+			"datalist": [user],
+		}
+	)
