@@ -12,7 +12,7 @@ class ModelApi extends BaseApi {
     if (negativePrompt?.trim()) queryParams.set('negative_prompt', negativePrompt.trim());
 
     const urlPath = `/model/generate?${queryParams.toString()}`;
-    const imageGenerateTimeoutMs = 3 * 60 * 1000;
+    const imageGenerateTimeoutMs = 10 * 60 * 1000;
 
     try {
       const response = await this.apiClient.get(urlPath, {
@@ -44,7 +44,7 @@ class ModelApi extends BaseApi {
           return {
             ok: false,
             apiUrl: this.buildUrl(urlPath),
-            error: '네트워크 연결 실패: 서버 미응답(CORS/SSL/도메인 접근 여부를 확인해 주세요).',
+            error: this.getNetworkFailureMessage(urlPath),
           };
         }
       }
@@ -94,7 +94,7 @@ class ModelApi extends BaseApi {
           return {
             ok: false,
             apiUrl: this.buildUrl(urlPath),
-            error: '네트워크 연결 실패: 서버 미응답(CORS/SSL/도메인 접근 여부를 확인해 주세요).',
+            error: this.getNetworkFailureMessage(urlPath),
           };
         }
       }

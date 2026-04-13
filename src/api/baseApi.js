@@ -22,6 +22,13 @@ class BaseApi {
     return responseData?.statusMsg || responseData?.data || fallbackMessage;
   }
 
+  getNetworkFailureMessage(urlPath) {
+    const apiUrl = this.buildUrl(urlPath);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '알 수 없음';
+
+    return `네트워크 연결 실패: ${apiUrl} 서버 미응답(현재 앱 출처: ${origin}, CORS/SSL/도메인 접근 여부를 확인해 주세요).`;
+  }
+
   async get(urlPath) {
     try {
       const response = await this.apiClient.get(urlPath);
@@ -57,7 +64,7 @@ class BaseApi {
       return {
         ok: false,
         apiUrl: this.buildUrl(urlPath),
-        error: `요청 실패: ${error.message}`,
+        error: error.request ? this.getNetworkFailureMessage(urlPath) : `요청 실패: ${error.message}`,
       };
     }
   }
@@ -106,7 +113,7 @@ class BaseApi {
         ok: false,
         apiUrl: this.buildUrl(urlPath),
         requestBody: body,
-        error: `요청 실패: ${error.message}`,
+        error: error.request ? this.getNetworkFailureMessage(urlPath) : `요청 실패: ${error.message}`,
       };
     }
   }
