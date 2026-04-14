@@ -40,6 +40,7 @@ const ImagePrompt = () => {
   const [strength, setStrength] = useState(savedState.strength || 0.75);
   const [resultImageUrl, setResultImageUrl] = useState(savedState.resultImageDataUri || '');
   const [backgroundResultImageUrl, setBackgroundResultImageUrl] = useState(savedState.backgroundResultImageDataUri || '');
+  const [ollamaBackgroundResultImageUrl, setOllamaBackgroundResultImageUrl] = useState(savedState.ollamaBackgroundResultImageDataUri || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -54,8 +55,9 @@ const ImagePrompt = () => {
       uploadedImageDataUri: uploadedImageUrl,
       resultImageDataUri: resultImageUrl,
       backgroundResultImageDataUri: backgroundResultImageUrl,
+      ollamaBackgroundResultImageDataUri: ollamaBackgroundResultImageUrl,
     });
-  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultImageUrl, backgroundResultImageUrl]);
+  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultImageUrl, backgroundResultImageUrl, ollamaBackgroundResultImageUrl]);
 
   // 언마운트 시 상태 저장 (명시적 보장)
   useEffect(() => {
@@ -68,9 +70,10 @@ const ImagePrompt = () => {
         uploadedImageDataUri: uploadedImageUrl,
         resultImageDataUri: resultImageUrl,
         backgroundResultImageDataUri: backgroundResultImageUrl,
+        ollamaBackgroundResultImageDataUri: ollamaBackgroundResultImageUrl,
       });
     };
-  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultImageUrl, backgroundResultImageUrl]);
+  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultImageUrl, backgroundResultImageUrl, ollamaBackgroundResultImageUrl]);
 
   const handlePromptChange = (event) => {
     setPromptText(event.target.value);
@@ -158,6 +161,38 @@ const ImagePrompt = () => {
 
       const generatedImageUrl = await getGeneratedImageDataUri(response, '백그라운드 생성에 실패했습니다.');
       if (generatedImageUrl) setBackgroundResultImageUrl(generatedImageUrl);
+    } catch (error) {
+      setErrorMsg(`오류가 발생했습니다: ${error.message}`);
+    } finally {
+      setIsGenerating(false);
+      setLoadingText('');
+    }
+  };
+
+  const handleBackgroundGenerateOllamaClick = async () => {
+    const hasImage = uploadedFile !== null || uploadedImageUrl !== '';
+    if (!hasImage) {
+      setErrorMsg('이미지를 먼저 업로드하거나 붙여넣기 해주세요.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setLoadingText('백그라운드 생성 중입니다(ollama). 잠시만 기다려 주세요.');
+    setErrorMsg('');
+
+    try {
+      const imageBase64 = uploadedFile
+        ? await fileToBase64(uploadedFile)
+        : uploadedImageUrl;
+      const response = await modelApi.makeBackgroundImageOllama(
+        imageBase64,
+        promptText,
+        positivePromptText,
+        negativePromptText,
+      );
+
+      const generatedImageUrl = await getGeneratedImageDataUri(response, '백그라운드 생성(ollama)에 실패했습니다.');
+      if (generatedImageUrl) setOllamaBackgroundResultImageUrl(generatedImageUrl);
     } catch (error) {
       setErrorMsg(`오류가 발생했습니다: ${error.message}`);
     } finally {
@@ -295,6 +330,14 @@ const ImagePrompt = () => {
           >
             {isGenerating ? '생성 중...' : '백그라운드생성'}
           </button>
+          <button
+            className="image-prompt__btn image-prompt__btn--secondary"
+            type="button"
+            onClick={handleBackgroundGenerateOllamaClick}
+            disabled={isGenerating}
+          >
+            {isGenerating ? '생성 중...' : '백그라운드생성(ollama)'}
+          </button>
         </div>
       </div>
 
@@ -339,6 +382,23 @@ const ImagePrompt = () => {
         ) : (
           <div className="image-prompt__empty-result" aria-label="백그라운드 생성 결과 빈 구역">
             백그라운드 생성 결과가 없습니다.
+          </div>
+        )}
+      </div>
+
+      <div className="image-prompt__result-section">
+        <h3 className="image-prompt__result-title">백그라운드 생성 결과(ollama)</h3>
+        {ollamaBackgroundResultImageUrl ? (
+          <div className="image-prompt__generated-box">
+            <img
+              className="image-prompt__generated-image"
+              src={ollamaBackgroundResultImageUrl}
+              alt="백그라운드 생성된 이미지(ollama)"
+            />
+          </div>
+        ) : (
+          <div className="image-prompt__empty-result" aria-label="백그라운드 생성 결과(ollama) 빈 구역">
+            백그라운드 생성 결과(ollama)가 없습니다.
           </div>
         )}
       </div>
