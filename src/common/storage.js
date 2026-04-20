@@ -155,8 +155,10 @@ export const getImagePromptState = () => {
     negativePromptText: '',
     strength: 0.75,
     uploadedImageDataUri: '', // 업로드된 원본 이미지 Data URI
-    resultImageDataUri: '',   // 생성 결과 이미지 Data URI
-    comfyuiResultImageDataUri: '', // ComfyUI 생성 결과 이미지 Data URI
+    resultsByOpt: { 0: '', 1: '', 2: '' }, // Opt별 생성 결과
+    activeOptTab: 0,
+    resultImageDataUri: '',   // 생성 결과 이미지 Data URI (레거시 지원)
+    comfyuiResultImageDataUri: '', // ComfyUI 생성 결과 이미지 Data URI (레거시 지원)
     backgroundResultImageDataUri: '', // 백그라운드 생성 결과 이미지 Data URI
     ollamaBackgroundResultImageDataUri: '', // Ollama 백그라운드 생성 결과 이미지 Data URI
     comfyuiBackgroundResultImageDataUri: '', // ComfyUI 백그라운드 생성 결과 이미지 Data URI

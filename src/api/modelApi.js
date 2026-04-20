@@ -906,6 +906,60 @@ class ModelApi extends BaseApi {
       };
     }
   }
+
+  async changeImageComfyuiOpt(opt, prompt = '', imageBase64, strength = 0.75, positivePrompt = '', negativePrompt = '') {
+    const createJobPath = '/model/changeimagecomfyui_opt/jobs';
+    const imagePromptTimeoutMs = 20 * 60 * 1000;
+    const body = {
+      opt,
+      prompt: prompt?.trim() || '',
+      positive_prompt: positivePrompt?.trim() || '',
+      negative_prompt: negativePrompt?.trim() || '',
+      image_base64: stripBase64Prefix(imageBase64),
+      strength,
+    };
+
+    try {
+      const createResponse = await this.apiClient.post(createJobPath, body, {
+        // base64 이미지 업로드/프록시 구간에서 30초를 넘길 수 있어 여유를 둡니다.
+        timeout: 2 * 60 * 1000,
+      });
+      const jobId = createResponse.data?.job_id;
+
+      if (!jobId) {
+        return {
+          ok: false,
+          apiUrl: this.buildUrl(createJobPath),
+          error: 'Job ID를 받지 못했습니다.',
+        };
+      }
+
+      const jobStatusPath = `/model/changeimagecomfyui_opt/jobs/${jobId}`;
+      const pollResult = await this.pollJobStatus(jobStatusPath, imagePromptTimeoutMs);
+
+      if (!pollResult.ok) {
+        return {
+          ok: false,
+          apiUrl: this.buildUrl(jobStatusPath),
+          error: pollResult.error,
+        };
+      }
+
+      const resultPath = `/model/changeimagecomfyui_opt/jobs/${jobId}/result`;
+      const fetchResult = await this.fetchJobResult(resultPath);
+
+      return {
+        ...fetchResult,
+        apiUrl: this.buildUrl(resultPath),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        apiUrl: this.buildUrl(createJobPath),
+        error: `비동기 요청 실패: ${error.message}`,
+      };
+    }
+  }
 }
 
 export const modelApi = new ModelApi();

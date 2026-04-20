@@ -187,6 +187,17 @@
   border-radius: 0 0 10px 10px;
 }
 
+.image-prompt__tab-description {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f9ff;
+  border: 1px solid #d8e4fb;
+  color: #344861;
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
 .image-prompt__result-section {
   display: grid;
   gap: 8px;

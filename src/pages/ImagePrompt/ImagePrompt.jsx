@@ -28,14 +28,13 @@ const blobUrlToDataUri = async (blobUrl) => {
   }
 };
 
-// Data URI에서 순수 base64 문자열만 추출하는 함수
-const extractBase64 = (dataUri) => {
-  if (!dataUri) return '';
-  const base64Index = dataUri.indexOf(';base64,');
-  if (base64Index === -1) return dataUri;
-  return dataUri.substring(base64Index + 8);
+const OPT_DESCRIPTIONS = {
+  0: 'opt=0: user_prompt,positive_prompot, negative_prompt 도 다 넘기고 시스템 프롬프트도 넘겨서 처리',
+  1: 'opt=1: user_prompt만 LLM에 전달, 파라메터 긍정/부정 + LLM 결과 조합',
+  2: 'opt=2: user_prompt만 LLM에 전달(시스템 프롬프트 없이), 파라메터 긍정/부정 + LLM 결과 조합',
 };
 
+// 이미지/프롬프트 페이지 상태
 const ImagePrompt = () => {
   // 초기 상태 한 번만 로드
   const savedState = getImagePromptState();
@@ -46,10 +45,9 @@ const ImagePrompt = () => {
   const [uploadedImageUrl, setUploadedImageUrl] = useState(savedState.uploadedImageDataUri || '');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [strength, setStrength] = useState(savedState.strength || 0.75);
-  const [resultImageUrl, setResultImageUrl] = useState(savedState.resultImageDataUri || '');
-  const [comfyuiResultImageUrl, setComfyuiResultImageUrl] = useState(savedState.comfyuiResultImageDataUri || '');
+  const [resultsByOpt, setResultsByOpt] = useState(savedState.resultsByOpt || { 0: '', 1: '', 2: '' });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState('default');
+  const [activeOptTab, setActiveOptTab] = useState(savedState.activeOptTab || 0);
   const [loadingText, setLoadingText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -61,10 +59,10 @@ const ImagePrompt = () => {
       negativePromptText,
       strength,
       uploadedImageDataUri: uploadedImageUrl,
-      resultImageDataUri: resultImageUrl,
-      comfyuiResultImageDataUri: comfyuiResultImageUrl,
+      resultsByOpt,
+      activeOptTab,
     });
-  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultImageUrl, comfyuiResultImageUrl]);
+  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultsByOpt, activeOptTab]);
 
   // 언마운트 시 상태 저장 (명시적 보장)
   useEffect(() => {
@@ -75,11 +73,11 @@ const ImagePrompt = () => {
         negativePromptText,
         strength,
         uploadedImageDataUri: uploadedImageUrl,
-        resultImageDataUri: resultImageUrl,
-        comfyuiResultImageDataUri: comfyuiResultImageUrl,
+        resultsByOpt,
+        activeOptTab,
       });
     };
-  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultImageUrl, comfyuiResultImageUrl]);
+  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultsByOpt, activeOptTab]);
 
 
   const handlePromptChange = (event) => {
@@ -108,43 +106,6 @@ const ImagePrompt = () => {
     return '';
   };
 
-  const handleGenerateClick = async () => {
-    if (!promptText.trim()) return;
-    // File 객체 없어도 저장된 Data URI가 있으면 사용 가능
-    const hasImage = uploadedFile !== null || uploadedImageUrl !== '';
-    if (!hasImage) {
-      setErrorMsg('이미지를 먼저 업로드하거나 붙여넣기 해주세요.');
-      return;
-    }
-
-    setIsGenerating(true);
-  setLoadingText('이미지 변환 중입니다. 잠시만 기다려 주세요.');
-    setErrorMsg('');
-
-    try {
-      // File이 있으면 변환, 없으면 저장된 Data URI(uploadedImageUrl) 직접 사용
-      const dataUri = uploadedFile
-        ? await fileToBase64(uploadedFile)
-        : uploadedImageUrl;
-      const imageBase64 = extractBase64(dataUri);
-      const response = await modelApi.changeImage(
-        promptText.trim(),
-        imageBase64,
-        strength,
-        positivePromptText,
-        negativePromptText,
-      );
-
-      const generatedImageUrl = await getGeneratedImageDataUri(response, '이미지 변환에 실패했습니다.');
-      if (generatedImageUrl) setResultImageUrl(generatedImageUrl);
-    } catch (error) {
-      setErrorMsg(`오류가 발생했습니다: ${error.message}`);
-    } finally {
-      setIsGenerating(false);
-      setLoadingText('');
-    }
-  };
-
   const handleGenerateComfyuiClick = async () => {
     const hasImage = uploadedFile !== null || uploadedImageUrl !== '';
     if (!hasImage) {
@@ -153,29 +114,36 @@ const ImagePrompt = () => {
     }
 
     if (!promptText.trim() && !positivePromptText.trim()) {
-      setErrorMsg('ComfyUI 생성은 기본 프롬프트 또는 포지티브 프롬프트가 필요합니다.');
+      setErrorMsg('이미지 변경은 기본 프롬프트 또는 포지티브 프롬프트가 필요합니다.');
       return;
     }
 
     setIsGenerating(true);
-    setLoadingText('이미지 변환 중입니다(comfyui). 잠시만 기다려 주세요.');
+    setLoadingText(`옵션 ${activeOptTab}으로 이미지 변환 중입니다. 잠시만 기다려 주세요.`);
     setErrorMsg('');
 
     try {
       const dataUri = uploadedFile
         ? await fileToBase64(uploadedFile)
         : uploadedImageUrl;
-      const imageBase64 = extractBase64(dataUri);
-      const response = await modelApi.changeImageComfyui(
+      
+      // modelApi.changeImageComfyuiOpt 사용 (비동기 구현)
+      const response = await modelApi.changeImageComfyuiOpt(
+        activeOptTab,
         promptText,
-        imageBase64,
+        dataUri,
         strength,
         positivePromptText,
         negativePromptText,
       );
 
-      const generatedImageUrl = await getGeneratedImageDataUri(response, '이미지 변환(comfyui)에 실패했습니다.');
-      if (generatedImageUrl) setComfyuiResultImageUrl(generatedImageUrl);
+      const generatedImageUrl = await getGeneratedImageDataUri(response, `이미지 변환(Opt ${activeOptTab})에 실패했습니다.`);
+      if (generatedImageUrl) {
+        setResultsByOpt(prev => ({
+          ...prev,
+          [activeOptTab]: generatedImageUrl
+        }));
+      }
     } catch (error) {
       setErrorMsg(`오류가 발생했습니다: ${error.message}`);
     } finally {
@@ -183,7 +151,6 @@ const ImagePrompt = () => {
       setLoadingText('');
     }
   };
-
 
 
   const handleUploadChange = async (event) => {
@@ -299,80 +266,47 @@ const ImagePrompt = () => {
         </div>
 
         <div className="image-prompt__tabs">
-          <button
-            className={`image-prompt__tab ${activeTab === 'default' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('default')}
-            type="button"
-          >
-            생성
-          </button>
-          <button
-            className={`image-prompt__tab ${activeTab === 'comfyui' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('comfyui')}
-            type="button"
-          >
-            생성(comfyui)
-          </button>
+          {[0, 1, 2].map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              className={`image-prompt__tab${activeOptTab === opt ? ' is-active' : ''}`}
+              onClick={() => setActiveOptTab(opt)}
+            >
+              옵션 {opt}
+            </button>
+          ))}
         </div>
 
         <div className="image-prompt__tab-content">
-          {activeTab === 'default' ? (
-            <div className="image-prompt__tab-pane">
-              <button
-                className="image-prompt__btn image-prompt__btn--full"
-                type="button"
-                onClick={handleGenerateClick}
-                disabled={isGenerating}
-              >
-                {isGenerating && activeTab === 'default' ? '생성 중...' : '생성'}
-              </button>
+          <div className="image-prompt__tab-pane">
+            <p className="image-prompt__tab-description">{OPT_DESCRIPTIONS[activeOptTab]}</p>
+            <button
+              className="image-prompt__btn image-prompt__btn--full image-prompt__btn--secondary"
+              type="button"
+              onClick={handleGenerateComfyuiClick}
+              disabled={isGenerating}
+            >
+              {isGenerating ? '생성 중...' : `이미지 변경 (Opt ${activeOptTab})`}
+            </button>
 
-              <div className="image-prompt__result-section">
-                <h3 className="image-prompt__result-title">생성 결과</h3>
-                {resultImageUrl ? (
-                  <div className="image-prompt__generated-box">
-                    <img
-                      className="image-prompt__generated-image"
-                      src={resultImageUrl}
-                      alt="생성된 이미지"
-                    />
-                  </div>
-                ) : (
-                  <div className="image-prompt__empty-result" aria-label="생성 결과 빈 구역">
-                    생성 결과가 없습니다.
-                  </div>
-                )}
-              </div>
+            <div className="image-prompt__result-section">
+              <h3 className="image-prompt__result-title">생성 결과 (Opt {activeOptTab})</h3>
+              {resultsByOpt[activeOptTab] ? (
+                <div className="image-prompt__generated-box">
+                  <img
+                    className="image-prompt__generated-image"
+                    src={resultsByOpt[activeOptTab]}
+                    alt={`생성된 이미지 (Opt ${activeOptTab})`}
+                  />
+                </div>
+              ) : (
+                <div className="image-prompt__empty-result" aria-label={`생성 결과 (Opt ${activeOptTab}) 빈 구역`}>
+                  옵션 {activeOptTab}의 생성 결과가 없습니다.
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="image-prompt__tab-pane">
-              <button
-                className="image-prompt__btn image-prompt__btn--full image-prompt__btn--secondary"
-                type="button"
-                onClick={handleGenerateComfyuiClick}
-                disabled={isGenerating}
-              >
-                {isGenerating && activeTab === 'comfyui' ? '생성 중...' : '생성(comfyui)'}
-              </button>
-
-              <div className="image-prompt__result-section">
-                <h3 className="image-prompt__result-title">생성 결과(comfyui)</h3>
-                {comfyuiResultImageUrl ? (
-                  <div className="image-prompt__generated-box">
-                    <img
-                      className="image-prompt__generated-image"
-                      src={comfyuiResultImageUrl}
-                      alt="생성된 이미지(comfyui)"
-                    />
-                  </div>
-                ) : (
-                  <div className="image-prompt__empty-result" aria-label="생성 결과(comfyui) 빈 구역">
-                    생성 결과(comfyui)가 없습니다.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 

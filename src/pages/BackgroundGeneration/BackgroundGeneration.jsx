@@ -44,7 +44,7 @@ const BackgroundGeneration = () => {
   const [vlmGptBackgroundResult, setVlmGptBackgroundResult] = useState(savedState.vlmGptBackgroundResult || { imageDataUri: '', vlmText: '' });
 
   const [generatingMode, setGeneratingMode] = useState('');
-  const [activeTab, setActiveTab] = useState('background');
+  const [activeTab, setActiveTab] = useState('comfyui');
   const [loadingText, setLoadingText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -124,60 +124,6 @@ const BackgroundGeneration = () => {
     return '';
   };
 
-  const handleBackgroundGenerateClick = async () => {
-    const hasImage = uploadedFile !== null || uploadedImageUrl !== '';
-    if (!hasImage) {
-      setErrorMsg('이미지를 먼저 업로드하거나 붙여넣기 해주세요.');
-      return;
-    }
-    if (!promptText.trim()) {
-      setErrorMsg('기본 프롬프트를 입력해 주세요.');
-      return;
-    }
-    setGeneratingMode('background');
-    setLoadingText('백그라운드 생성 중입니다. 잠시만 기다려 주세요.');
-    setErrorMsg('');
-    try {
-      const dataUri = uploadedFile ? await fileToBase64(uploadedFile) : uploadedImageUrl;
-      const imageBase64 = extractBase64(dataUri);
-      const response = await modelApi.makeBackgroundImage(imageBase64, promptText, positivePromptText, negativePromptText);
-      const generatedUrl = await getGeneratedImageDataUri(response, '백그라운드 생성에 실패했습니다.');
-      if (generatedUrl) setBackgroundResultImageUrl(generatedUrl);
-    } catch (e) {
-      setErrorMsg(`오류가 발생했습니다: ${e.message}`);
-    } finally {
-      setGeneratingMode('');
-      setLoadingText('');
-    }
-  };
-
-  const handleBackgroundGenerateOllamaClick = async () => {
-    const hasImage = uploadedFile !== null || uploadedImageUrl !== '';
-    if (!hasImage) {
-      setErrorMsg('이미지를 먼저 업로드하거나 붙여넣기 해주세요.');
-      return;
-    }
-    if (!promptText.trim()) {
-      setErrorMsg('기본 프롬프트를 입력해 주세요.');
-      return;
-    }
-    setGeneratingMode('background-ollama');
-    setLoadingText('백그라운드 생성(ollama) 중입니다. 잠시만 기다려 주세요.');
-    setErrorMsg('');
-    try {
-      const dataUri = uploadedFile ? await fileToBase64(uploadedFile) : uploadedImageUrl;
-      const imageBase64 = extractBase64(dataUri);
-      const response = await modelApi.makeBackgroundImageOllama(imageBase64, promptText, positivePromptText, negativePromptText);
-      const generatedUrl = await getGeneratedImageDataUri(response, 'ollama 백그라운드 생성에 실패했습니다.');
-      if (generatedUrl) setOllamaBackgroundResultImageUrl(generatedUrl);
-    } catch (e) {
-      setErrorMsg(`오류가 발생했습니다: ${e.message}`);
-    } finally {
-      setGeneratingMode('');
-      setLoadingText('');
-    }
-  };
-
   const handleBackgroundGenerateComfyuiClick = async () => {
     const hasImage = uploadedFile !== null || uploadedImageUrl !== '';
     if (!hasImage) {
@@ -197,42 +143,6 @@ const BackgroundGeneration = () => {
       const response = await modelApi.makeBackgroundImageComfyui(imageBase64, promptText, positivePromptText, negativePromptText);
       const generatedUrl = await getGeneratedImageDataUri(response, 'comfyui 백그라운드 생성에 실패했습니다.');
       if (generatedUrl) setComfyuiBackgroundResultImageUrl(generatedUrl);
-    } catch (e) {
-      setErrorMsg(`오류가 발생했습니다: ${e.message}`);
-    } finally {
-      setGeneratingMode('');
-      setLoadingText('');
-    }
-  };
-
-  const handleBackgroundGenerateVlmGptClick = async () => {
-    const hasImage = uploadedFile !== null || uploadedImageUrl !== '';
-    if (!hasImage) {
-      setErrorMsg('이미지를 먼저 업로드하거나 붙여넣기 해주세요.');
-      return;
-    }
-    if (!promptText.trim()) {
-      setErrorMsg('기본 프롬프트를 입력해 주세요.');
-      return;
-    }
-    setGeneratingMode('background-vlm-gpt');
-    setLoadingText('백그라운드 생성(VLM GPT) 중입니다. 잠시만 기다려 주세요.');
-    setErrorMsg('');
-    try {
-      const dataUri = uploadedFile ? await fileToBase64(uploadedFile) : uploadedImageUrl;
-      const imageBase64 = extractBase64(dataUri);
-      const response = await modelApi.generateVlmGptImage(imageBase64, promptText, positivePromptText, negativePromptText);
-      if (response.ok && (response.imageBase64 || response.blobUrl)) {
-        const dataUri = response.imageBase64 
-          ? `data:${response.contentType || 'image/png'};base64,${response.imageBase64}`
-          : await blobUrlToDataUri(response.blobUrl);
-        setVlmGptBackgroundResult({
-          imageDataUri: dataUri,
-          vlmText: response.vlmText || ''
-        });
-      } else {
-        setErrorMsg(response.error || 'VLM GPT 백그라운드 생성에 실패했습니다.');
-      }
     } catch (e) {
       setErrorMsg(`오류가 발생했습니다: ${e.message}`);
     } finally {
@@ -307,130 +217,26 @@ const BackgroundGeneration = () => {
           rows={6}
         />
 
-        <div className="image-generation__tabs">
-          <button
-            className={`image-generation__tab ${activeTab === 'background' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('background')}
-            type="button"
-          >
-            기본
-          </button>
-          <button
-            className={`image-generation__tab ${activeTab === 'ollama' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('ollama')}
-            type="button"
-          >
-            Ollama
-          </button>
-          <button
-            className={`image-generation__tab ${activeTab === 'vlm-gpt' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('vlm-gpt')}
-            type="button"
-          >
-            VLM GPT
-          </button>
-          <button
-            className={`image-generation__tab ${activeTab === 'comfyui' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('comfyui')}
-            type="button"
-          >
-            ComfyUI
-          </button>
-        </div>
-
         <div className="image-generation__tab-content">
-          {activeTab === 'background' && (
-            <div className="image-generation__tab-pane">
-              <button
-                className="image-generation__btn image-generation__btn--full"
-                type="button"
-                onClick={handleBackgroundGenerateClick}
-                disabled={Boolean(generatingMode)}
-              >
-                {generatingMode === 'background' ? '생성 중...' : '백그라운드 생성'}
-              </button>
-              <div className="image-generation__result-section">
-                {backgroundResultImageUrl ? (
-                  <div className="image-generation__generated-box">
-                    <img className="image-generation__generated-image" src={backgroundResultImageUrl} alt="백그라운드 생성 결과" />
-                  </div>
-                ) : (
-                  <div className="image-generation__empty-result">생성 결과가 없습니다.</div>
-                )}
-              </div>
+          <div className="image-generation__tab-pane">
+            <button
+              className="image-generation__btn image-generation__btn--full image-generation__btn--secondary"
+              type="button"
+              onClick={handleBackgroundGenerateComfyuiClick}
+              disabled={Boolean(generatingMode)}
+            >
+              {generatingMode === 'background-comfyui' ? '생성 중...' : 'ComfyUI 백그라운드 생성'}
+            </button>
+            <div className="image-generation__result-section">
+              {comfyuiBackgroundResultImageUrl ? (
+                <div className="image-generation__generated-box">
+                  <img className="image-generation__generated-image" src={comfyuiBackgroundResultImageUrl} alt="ComfyUI 생성 결과" />
+                </div>
+              ) : (
+                <div className="image-generation__empty-result">생성 결과가 없습니다.</div>
+              )}
             </div>
-          )}
-
-          {activeTab === 'ollama' && (
-            <div className="image-generation__tab-pane">
-              <button
-                className="image-generation__btn image-generation__btn--full image-generation__btn--secondary"
-                type="button"
-                onClick={handleBackgroundGenerateOllamaClick}
-                disabled={Boolean(generatingMode)}
-              >
-                {generatingMode === 'background-ollama' ? '생성 중...' : 'Ollama 생성'}
-              </button>
-              <div className="image-generation__result-section">
-                {ollamaBackgroundResultImageUrl ? (
-                  <div className="image-generation__generated-box">
-                    <img className="image-generation__generated-image" src={ollamaBackgroundResultImageUrl} alt="Ollama 생성 결과" />
-                  </div>
-                ) : (
-                  <div className="image-generation__empty-result">생성 결과가 없습니다.</div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'vlm-gpt' && (
-            <div className="image-generation__tab-pane">
-              <button
-                className="image-generation__btn image-generation__btn--full image-generation__btn--secondary"
-                type="button"
-                onClick={handleBackgroundGenerateVlmGptClick}
-                disabled={Boolean(generatingMode)}
-              >
-                {generatingMode === 'background-vlm-gpt' ? '생성 중...' : 'VLM GPT 생성'}
-              </button>
-              <div className="image-generation__result-section">
-                {vlmGptBackgroundResult.imageDataUri ? (
-                  <div className="image-generation__generated-box">
-                    <img className="image-generation__generated-image" src={vlmGptBackgroundResult.imageDataUri} alt="VLM GPT 생성 결과" />
-                    {vlmGptBackgroundResult.vlmText && (
-                      <div style={{ marginTop: '8px', color: '#2a3e58', fontSize: '0.94rem' }}>
-                        <strong>VLM 설명:</strong> {vlmGptBackgroundResult.vlmText}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="image-generation__empty-result">생성 결과가 없습니다.</div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'comfyui' && (
-            <div className="image-generation__tab-pane">
-              <button
-                className="image-generation__btn image-generation__btn--full image-generation__btn--secondary"
-                type="button"
-                onClick={handleBackgroundGenerateComfyuiClick}
-                disabled={Boolean(generatingMode)}
-              >
-                {generatingMode === 'background-comfyui' ? '생성 중...' : 'ComfyUI 생성'}
-              </button>
-              <div className="image-generation__result-section">
-                {comfyuiBackgroundResultImageUrl ? (
-                  <div className="image-generation__generated-box">
-                    <img className="image-generation__generated-image" src={comfyuiBackgroundResultImageUrl} alt="ComfyUI 생성 결과" />
-                  </div>
-                ) : (
-                  <div className="image-generation__empty-result">생성 결과가 없습니다.</div>
-                )}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 

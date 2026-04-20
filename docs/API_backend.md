@@ -1,17 +1,32 @@
-## 11. VLM+GPT+ComfyUI 통합 이미지 생성 API
 
-### 11-1. 엔드포인트
+## 1. VLM+GPT+ComfyUI 통합 이미지 생성 API
+
+## (프론트 개발) 502 Bad Gateway가 뜰 때
+
+- **증상**: 브라우저 콘솔에 `Failed to load resource: the server responded with a status of 502 (Bad Gateway)` 가 뜨면서 `/addhelper/model/...` 호출이 실패
+- **원인(대부분)**: dev 환경에서 프론트는 Vite proxy로 `/addhelper`를 백엔드로 전달하는데, `VITE_BACKEND_URL`이 로컬 백엔드가 아니라 기본값(duckdns)로 잡혀있거나 백엔드가 꺼져있으면 프록시가 업스트림 연결 실패 → 502 발생
+- **해결**: 로컬 백엔드를 사용한다면 프론트에 아래처럼 설정하고 dev 서버를 재시작합니다.
+
+```bash
+# .env.development
+VITE_BACKEND_URL=http://localhost:8990/addhelper
+```
+
+### 1-1. 엔드포인트
 
 ```
 POST /addhelper/model/generate_vlm_gpt_image
 ```
+
+
+> ⚠️ Ollama 기반 프롬프트 생성은 반드시 `https://gen-proj.duckdns.org/ollama` 경로만 사용합니다. 백엔드 설정(`backend.ini`의 `[ollama] ollama_url`)과 코드 모두 이 주소만 호출해야 하며, 다른 주소로의 호출은 허용되지 않습니다.
 
 이미지(base64), 프롬프트, 포지티브/네거티브 프롬프트를 받아
 1. 이미지에서 VLM(Florence)로 설명 텍스트 추출
 2. 해당 텍스트와 입력 프롬프트들을 GPT(OpenAI)로 최적화
 3. ComfyUI로 이미지를 생성하여 반환합니다.
 
-### 11-2. 요청 바디 예시
+### 1-2. 요청 바디 예시
 
 ```json
 {
@@ -22,7 +37,7 @@ POST /addhelper/model/generate_vlm_gpt_image
 }
 ```
 
-### 11-3. 응답 예시
+### 1-3. 응답 예시
 
 ```json
 {
@@ -44,7 +59,7 @@ POST /addhelper/model/generate_vlm_gpt_image
 }
 ```
 
-### 11-4. React fetch 예시
+### 1-4. React fetch 예시
 
 ```tsㅔㅛ
 type VlmGptImagePayload = {
@@ -179,7 +194,72 @@ export async function runImageJob<TPayload>(
 
 ---
 
-## 6. 파일 → base64 변환
+## 2. ComfyUI ChangeImage (opt) 비동기 API
+
+### 2-1. 잡 생성
+- **POST** `/addhelper/model/changeimagecomfyui_opt/jobs`
+- 요청: (ChangeImageComfyUiRequest_opt)
+```json
+{
+  "opt": 0,
+  "prompt": "광고용 커피 사진 스타일로 변환",
+  "positive_prompt": "high detail, commercial, coffee, 8k",
+  "negative_prompt": "blurry, low quality",
+  "image_base64": "data:image/png;base64,...",
+  "strength": 0.45
+}
+```
+- 응답: `{ "job_id": "...", "status": "queued" }`
+
+### 2-2. 잡 상태 조회
+- **GET** `/addhelper/model/changeimagecomfyui_opt/jobs/{job_id}`
+- 응답: `{ "job_id": "...", "status": "queued|done|failed", "error": "..." }`
+
+### 2-3. 잡 결과 조회
+- **GET** `/addhelper/model/changeimagecomfyui_opt/jobs/{job_id}/result`
+- 성공 시:
+```json
+{
+  "positive_prompt": "...",
+  "negative_prompt": "...",
+  "image_base64": "...",
+  "content_type": "image/png"
+}
+```
+- 실패 시:
+```json
+{
+  "error": "오류 메시지"
+}
+```
+
+### 2-4. React 연동 예시
+```ts
+export async function createChangeImageComfyuiOptJob(payload) {
+  const res = await fetch(`${API_BASE_URL}/addhelper/model/changeimagecomfyui_opt/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const job = await res.json();
+  return job.job_id;
+}
+
+export async function getChangeImageComfyuiOptJobStatus(job_id) {
+  const res = await fetch(`${API_BASE_URL}/addhelper/model/changeimagecomfyui_opt/jobs/${job_id}`);
+  return await res.json();
+}
+
+export async function getChangeImageComfyuiOptJobResult(job_id) {
+  const res = await fetch(`${API_BASE_URL}/addhelper/model/changeimagecomfyui_opt/jobs/${job_id}/result`);
+  if (!res.ok) throw new Error('결과 조회 실패');
+  return await res.json();
+}
+```
+
+---
+
+## 7. 파일 → base64 변환
 
 ```ts
 export function fileToBase64(file: File): Promise<string> {
@@ -201,7 +281,7 @@ export function fileToBase64(file: File): Promise<string> {
 
 ---
 
-## 7. 에러 처리
+## 8. 에러 처리
 
 ```ts
 async function parseJsonError(response: Response, fallbackMessage: string) {
@@ -216,7 +296,7 @@ async function parseJsonError(response: Response, fallbackMessage: string) {
 
 ---
 
-## 8. 참고 사항
+## 9. 참고 사항
 
 - 실제 서비스에서는 반드시 비동기(jobs) API 사용 권장
 - 긴 작업을 동기 API로 호출 시 504 등 오류 발생 가능

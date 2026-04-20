@@ -29,7 +29,7 @@ const ImageGeneration = () => {
   const [resultImageUrl, setResultImageUrl] = useState(savedState.resultImageDataUri || '');
   const [comfyuiResultImageUrl, setComfyuiResultImageUrl] = useState(savedState.comfyuiResultImageDataUri || '');
   const [generatingMode, setGeneratingMode] = useState('');
-  const [activeTab, setActiveTab] = useState('default');
+  const [activeTab, setActiveTab] = useState('comfyui');
   const [loadingText, setLoadingText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -69,37 +69,28 @@ const ImageGeneration = () => {
     setNegativePromptText(event.target.value);
   };
 
-  const handleGenerateClick = async (mode = 'default') => {
+  const handleGenerateClick = async (mode = 'comfyui') => {
     const trimmedPrompt = promptText.trim();
     const trimmedPositivePrompt = positivePromptText.trim();
 
-    if (mode === 'default' && !trimmedPrompt) return;
     if (mode === 'comfyui' && !trimmedPrompt && !trimmedPositivePrompt) {
       setErrorMsg('ComfyUI 생성은 기본 프롬프트 또는 포지티브 프롬프트가 필요합니다.');
       return;
     }
 
     setGeneratingMode(mode);
-    setLoadingText(mode === 'comfyui' ? '이미지 생성 중입니다(comfyui). 잠시만 기다려 주세요.' : '이미지 생성 중입니다. 잠시만 기다려 주세요.');
+    setLoadingText('이미지 생성 중입니다(comfyui). 잠시만 기다려 주세요.');
     
-    if (mode === 'comfyui') setComfyuiResultImageUrl('');
-    else setResultImageUrl('');
-    
+    setComfyuiResultImageUrl('');
     setErrorMsg('');
 
     try {
-      const response = mode === 'comfyui'
-        ? await modelApi.generateImageComfyui(trimmedPrompt, positivePromptText, negativePromptText)
-        : await modelApi.generateImage(trimmedPrompt, positivePromptText, negativePromptText);
+      const response = await modelApi.generateImageComfyui(trimmedPrompt, positivePromptText, negativePromptText);
 
       if (response.ok) {
         const dataUri = await blobUrlToDataUri(response.blobUrl);
         const finalUrl = dataUri || response.blobUrl;
-        if (mode === 'comfyui') {
-          setComfyuiResultImageUrl(finalUrl);
-        } else {
-          setResultImageUrl(finalUrl);
-        }
+        setComfyuiResultImageUrl(finalUrl);
       } else {
         setErrorMsg(response.error || '이미지 생성에 실패했습니다.');
       }
@@ -150,79 +141,33 @@ const ImageGeneration = () => {
           rows={6}
         />
 
-        <div className="image-generation__tabs">
-          <button
-            className={`image-generation__tab ${activeTab === 'default' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('default')}
-            type="button"
-          >
-            생성
-          </button>
-          <button
-            className={`image-generation__tab ${activeTab === 'comfyui' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('comfyui')}
-            type="button"
-          >
-            생성(comfyui)
-          </button>
-        </div>
-
         <div className="image-generation__tab-content">
-          {activeTab === 'default' ? (
-            <div className="image-generation__tab-pane">
-              <button
-                className="image-generation__btn image-generation__btn--full"
-                type="button"
-                onClick={() => handleGenerateClick('default')}
-                disabled={Boolean(generatingMode)}
-              >
-                {generatingMode === 'default' ? '생성 중...' : '생성'}
-              </button>
+          <div className="image-generation__tab-pane">
+            <button
+              className="image-generation__btn image-generation__btn--full image-generation__btn--secondary"
+              type="button"
+              onClick={() => handleGenerateClick('comfyui')}
+              disabled={Boolean(generatingMode)}
+            >
+              {generatingMode === 'comfyui' ? '생성 중...' : 'ComfyUI 이미지 생성'}
+            </button>
 
-              <div className="image-generation__result-section">
-                {resultImageUrl ? (
-                  <div className="image-generation__result">
-                    <img
-                      className="image-generation__result-img"
-                      src={resultImageUrl}
-                      alt="생성된 이미지"
-                    />
-                  </div>
-                ) : (
-                  <div className="image-generation__empty-result" aria-label="생성 결과 빈 구역">
-                    생성 결과가 없습니다.
-                  </div>
-                )}
-              </div>
+            <div className="image-generation__result-section">
+              {comfyuiResultImageUrl ? (
+                <div className="image-generation__result">
+                  <img
+                    className="image-generation__result-img"
+                    src={comfyuiResultImageUrl}
+                    alt="생성된 이미지(comfyui)"
+                  />
+                </div>
+              ) : (
+                <div className="image-generation__empty-result" aria-label="생성 결과(comfyui) 빈 구역">
+                  생성 결과(comfyui)가 없습니다.
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="image-generation__tab-pane">
-              <button
-                className="image-generation__btn image-generation__btn--full image-generation__btn--secondary"
-                type="button"
-                onClick={() => handleGenerateClick('comfyui')}
-                disabled={Boolean(generatingMode)}
-              >
-                {generatingMode === 'comfyui' ? '생성 중...' : '생성(comfyui)'}
-              </button>
-
-              <div className="image-generation__result-section">
-                {comfyuiResultImageUrl ? (
-                  <div className="image-generation__result">
-                    <img
-                      className="image-generation__result-img"
-                      src={comfyuiResultImageUrl}
-                      alt="생성된 이미지(comfyui)"
-                    />
-                  </div>
-                ) : (
-                  <div className="image-generation__empty-result" aria-label="생성 결과(comfyui) 빈 구역">
-                    생성 결과(comfyui)가 없습니다.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
