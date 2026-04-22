@@ -46,7 +46,9 @@ const ImagePrompt = () => {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [strength, setStrength] = useState(savedState.strength || 0.75);
   const [resultsByOpt, setResultsByOpt] = useState(savedState.resultsByOpt || { 0: '', 1: '', 2: '' });
+  const [generatedPromptsByOpt, setGeneratedPromptsByOpt] = useState(savedState.generatedPromptsByOpt || { 0: null, 1: null, 2: null });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPromptGenerating, setIsPromptGenerating] = useState(false);
   const [activeOptTab, setActiveOptTab] = useState(savedState.activeOptTab || 0);
   const [loadingText, setLoadingText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -60,9 +62,10 @@ const ImagePrompt = () => {
       strength,
       uploadedImageDataUri: uploadedImageUrl,
       resultsByOpt,
+      generatedPromptsByOpt,
       activeOptTab,
     });
-  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultsByOpt, activeOptTab]);
+  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultsByOpt, generatedPromptsByOpt, activeOptTab]);
 
   // 언마운트 시 상태 저장 (명시적 보장)
   useEffect(() => {
@@ -74,10 +77,11 @@ const ImagePrompt = () => {
         strength,
         uploadedImageDataUri: uploadedImageUrl,
         resultsByOpt,
+        generatedPromptsByOpt,
         activeOptTab,
       });
     };
-  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultsByOpt, activeOptTab]);
+  }, [promptText, positivePromptText, negativePromptText, strength, uploadedImageUrl, resultsByOpt, generatedPromptsByOpt, activeOptTab]);
 
 
   const handlePromptChange = (event) => {
@@ -148,6 +152,44 @@ const ImagePrompt = () => {
       setErrorMsg(`오류가 발생했습니다: ${error.message}`);
     } finally {
       setIsGenerating(false);
+      setLoadingText('');
+    }
+  };
+
+  const handleGeneratePromptClick = async () => {
+    if (!promptText.trim()) {
+      setErrorMsg('프롬프트 생성을 위해 기본 프롬프트를 입력해 주세요.');
+      return;
+    }
+
+    setIsPromptGenerating(true);
+    setLoadingText(`옵션 ${activeOptTab}으로 프롬프트 생성 중입니다. 잠시만 기다려 주세요.`);
+    setErrorMsg('');
+
+    try {
+      const response = await modelApi.generateDualPrompt(
+        activeOptTab,
+        promptText, // user_prompt
+        positivePromptText,
+        negativePromptText,
+        promptText, // input_text (동일하게 사용하거나 필요시 조정)
+      );
+
+      if (response.ok) {
+        setGeneratedPromptsByOpt(prev => ({
+          ...prev,
+          [activeOptTab]: {
+            positive: response.positivePrompt || '',
+            negative: response.negativePrompt || ''
+          }
+        }));
+      } else {
+        setErrorMsg(response.error || '프롬프트 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      setErrorMsg(`오류가 발생했습니다: ${error.message}`);
+    } finally {
+      setIsPromptGenerating(false);
       setLoadingText('');
     }
   };
@@ -281,17 +323,41 @@ const ImagePrompt = () => {
         <div className="image-prompt__tab-content">
           <div className="image-prompt__tab-pane">
             <p className="image-prompt__tab-description">{OPT_DESCRIPTIONS[activeOptTab]}</p>
-            <button
-              className="image-prompt__btn image-prompt__btn--full image-prompt__btn--secondary"
-              type="button"
-              onClick={handleGenerateComfyuiClick}
-              disabled={isGenerating}
-            >
-              {isGenerating ? '생성 중...' : `이미지 변경 (Opt ${activeOptTab})`}
-            </button>
+            <div className="image-prompt__btn-group">
+              <button
+                className="image-prompt__btn image-prompt__btn-half image-prompt__btn--secondary"
+                type="button"
+                onClick={handleGenerateComfyuiClick}
+                disabled={isGenerating || isPromptGenerating}
+              >
+                {isGenerating ? '변환 중...' : `이미지변경 (Opt ${activeOptTab})`}
+              </button>
+              <button
+                className="image-prompt__btn image-prompt__btn-half image-prompt__btn--primary"
+                type="button"
+                onClick={handleGeneratePromptClick}
+                disabled={isGenerating || isPromptGenerating}
+              >
+                {isPromptGenerating ? '생성 중...' : `프롬프트생성 (Opt ${activeOptTab})`}
+              </button>
+            </div>
 
             <div className="image-prompt__result-section">
               <h3 className="image-prompt__result-title">생성 결과 (Opt {activeOptTab})</h3>
+              
+              {generatedPromptsByOpt[activeOptTab] && (
+                <div className="image-prompt__generated-prompts">
+                  <div className="image-prompt__generated-prompt-item">
+                    <span className="image-prompt__generated-prompt-label">결과 포지티브:</span>
+                    <pre className="image-prompt__generated-prompt-value">{generatedPromptsByOpt[activeOptTab].positive}</pre>
+                  </div>
+                  <div className="image-prompt__generated-prompt-item">
+                    <span className="image-prompt__generated-prompt-label">결과 네거티브:</span>
+                    <pre className="image-prompt__generated-prompt-value">{generatedPromptsByOpt[activeOptTab].negative}</pre>
+                  </div>
+                </div>
+              )}
+
               {resultsByOpt[activeOptTab] ? (
                 <div className="image-prompt__generated-box">
                   <img

@@ -156,6 +156,7 @@ export const getImagePromptState = () => {
     strength: 0.75,
     uploadedImageDataUri: '', // 업로드된 원본 이미지 Data URI
     resultsByOpt: { 0: '', 1: '', 2: '' }, // Opt별 생성 결과
+    generatedPromptsByOpt: { 0: null, 1: null, 2: null }, // Opt별 생성 프롬프트
     activeOptTab: 0,
     resultImageDataUri: '',   // 생성 결과 이미지 Data URI (레거시 지원)
     comfyuiResultImageDataUri: '', // ComfyUI 생성 결과 이미지 Data URI (레거시 지원)

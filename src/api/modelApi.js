@@ -130,6 +130,26 @@ class ModelApi extends BaseApi {
     }
   }
 
+  // jobs 결과 조회 함수 (JSON용)
+  async fetchJobResultJson(resultPath) {
+    try {
+      const response = await this.apiClient.get(resultPath, {
+        timeout: 60000,
+      });
+      return {
+        ok: true,
+        data: response.data,
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 409) {
+          return { ok: false, error: '작업이 아직 완료되지 않았습니다.' };
+        }
+      }
+      return { ok: false, error: `결과 조회 실패: ${error.message}` };
+    }
+  }
+
   async testConnection() {
     return this.get('/model/test');
   }
@@ -947,6 +967,87 @@ class ModelApi extends BaseApi {
 
       const resultPath = `/model/changeimagecomfyui_opt/jobs/${jobId}/result`;
       const fetchResult = await this.fetchJobResult(resultPath);
+
+      return {
+        ...fetchResult,
+        apiUrl: this.buildUrl(resultPath),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        apiUrl: this.buildUrl(createJobPath),
+        error: `비동기 요청 실패: ${error.message}`,
+      };
+    }
+  }
+
+  async generateDualPrompt(opt, user_prompt = '', positive_prompt = '', negative_prompt = '', input_text = '') {
+    // URL에서 선두의 슬래시를 제거하여 baseURL(/addhelper) 뒤에 올바르게 붙도록 함
+    const createJobPath = 'adver/makedaulprompt/jobs';
+    const timeoutMs = 5 * 60 * 1000;
+    const body = {
+      opt,
+      user_prompt: user_prompt?.trim() || '',
+      positive_prompt: positive_prompt?.trim() || '',
+      negative_prompt: negative_prompt?.trim() || '',
+      input_text: input_text?.trim() || user_prompt?.trim() || '',
+    };
+
+    try {
+      // 1. Job 생성 (this.post 사용하여 공통 처리 및 타임아웃 적용)
+      const response = await this.post(createJobPath, body);
+      
+      if (!response.ok) {
+        return {
+          ok: false,
+          apiUrl: response.apiUrl,
+          error: response.error || 'Job 생성 실패',
+        };
+      }
+      
+      const jobId = response.responseJson?.job_id;
+
+      if (!jobId) {
+        return {
+          ok: false,
+          apiUrl: response.apiUrl,
+          error: 'Job ID를 받지 못했습니다.',
+        };
+      }
+
+      // 2. Job 상태 폴링
+      const jobStatusPath = `adver/makedaulprompt/jobs/${jobId}`;
+      const pollResult = await this.pollJobStatus(jobStatusPath, timeoutMs);
+
+      if (!pollResult.ok) {
+        return {
+          ok: false,
+          apiUrl: this.buildUrl(jobStatusPath),
+          error: pollResult.error,
+        };
+      }
+
+      // 3. 결과 조회
+      const resultPath = `adver/makedaulprompt/jobs/${jobId}/result`;
+      const fetchResult = await this.fetchJobResultJson(resultPath);
+
+      if (fetchResult.ok) {
+        // API 응답 구조: { statusCode: 200, data: { positive_prompt, negative_prompt }, ... }
+        const resultData = fetchResult.data;
+        if (resultData.statusCode === 200 && resultData.data) {
+          return {
+            ok: true,
+            positivePrompt: resultData.data.positive_prompt,
+            negativePrompt: resultData.data.negative_prompt,
+            apiUrl: this.buildUrl(resultPath),
+          };
+        }
+        return {
+          ok: false,
+          error: resultData.statusMsg || '프롬프트 생성 실패',
+          apiUrl: this.buildUrl(resultPath),
+        };
+      }
 
       return {
         ...fetchResult,
